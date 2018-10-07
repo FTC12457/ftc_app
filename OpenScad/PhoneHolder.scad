@@ -1,24 +1,27 @@
 
 $fn= 72;
 
-Length=32;
-Width=10;
+Length=20;
+Width=5;
 Thickness=5;
 LowestLength=10;
-LowestOffset=10;
+LowestOffset=9;
 LowestHeight=12;
 LowHeight=20;
 HighHeight=35;
+Pad = 7;
 
-FoldedAngle=20;
-PrintAngle=-10;
-OpenAngle = 60;
-Pad = 1.25;
+       //Angle between outer arms = 180-2(OpenAngle-FoldedAngle)
+       //Angle between inner arms = 2*FoldedAngle (closed)
+       //                         = 180 - 2*OpenAngle (open)
+FoldedAngle=atan2(Pad, Length);
+OpenAngle = FoldedAngle+45;     
 
 SupportHeight=3.9;
-Gap=0.6;
-VerticalGap=0.75;
+Gap=0.25;
+VerticalGap=0.5;
 PostGap= 0.25;
+ExtraGap=0.0;//0.125;
 
 PostRadius=3.25;
 PostLength=5;
@@ -33,54 +36,65 @@ FinRatio = 2;
 ContactSize=22;
 ContactThickness=0.0;
 
-CutWidth = 1.5;
-CutLength=5;
+CutWidth = 1.75;
+CutLength=6;
 HookBottomLength = 0.5;
 HookTopLength = 4;
 HookMiddleLength=0.75;
 HookLength=HookBottomLength+HookMiddleLength+HookTopLength;
 HookWidth=2.65;
 
+Label1="Space Turtles";
+Label2="FTC 12547";
+
 union () {
     Pair();
-    //Preview();
-    //Tops(1);
-    //Bottoms(1);
+    //rotate([0,0,-FoldedAngle])
+    //Preview(2*OpenAngle);
+    //translate([-30,20,0])
+        //Preview(2*FoldedAngle - 180);
+    //Tops(8);
+    //Bottoms(8);
     //Test();
+    //Gripper();
 }
 
 module Pair() {
     rotate([0,0,-FoldedAngle])
         Top();
-    translate([0,30,0])
+    translate([0,16,0])
         rotate([0,0,180+FoldedAngle])
                 Bottom();
-    translate([10,15,HookWidth/2])
+    translate([20,8,HookWidth/2])
         rotate([0,0,-90])
             Gripper();
 }
 
-module Preview() {
-    rotate([0,0,PrintAngle])
+module Preview(printAngle) {
+    rotate([0,0,printAngle])
         Bottom();    
     Top();
-    rotate([-90,0,PrintAngle])
+    rotate([-90,0,printAngle])
     Gripper();
 }
 
 module Tops(n) {
     for (i = [0:n-1]) {
-        translate([0,i*20,0])
-            Top();
+        translate([6*i,i*15,0])
+            rotate([0,0,-FoldedAngle])
+                Top();
     }
 }
 
 module Bottoms(n) {
     for (i = [0:n-1]) {
-        translate([0,i*20,0])
-            Bottom();
-        translate([10 - i*15,-10,HookWidth/2])
-            Gripper();
+        translate([0,i*15,0])
+        {
+            rotate([0,0,FoldedAngle])
+                Bottom();
+            translate([-15,5,HookWidth/2])
+                Gripper();
+        }
     }
 }
 
@@ -119,19 +133,21 @@ module Gripper() {
         rotate([90,0,0]) {
         difference () {
             intersection () {
-                translate([-10,-HookWidth/2,0])
-                        cube([20,HookWidth,SupportHeight+PostLength+HookLength-2]);
+
+                translate([-10,-HookWidth/2+ExtraGap,0])
+                        cube([20,HookWidth-ExtraGap*2,SupportHeight+PostLength+HookLength-2]);
                 union() {
-                    cylinder(r=PostRadius+1.5,h=1.65);
+                    cylinder(r=PostRadius+1.5-ExtraGap,h=1.65);
                     translate([0,0,1.65])
-                        cylinder(r1=PostRadius+1.5, r2=PostRadius, h=1);
-                    Hook(PostRadius, SupportHeight+PostLength,
-                        HookRadius, HookBottomLength, HookMiddleLength, HookTopLength, 0.0);
+                        cylinder(r1=PostRadius+1.5-ExtraGap, r2=PostRadius-ExtraGap, h=1);
+                    Hook(PostRadius-ExtraGap, SupportHeight+PostLength,
+                        HookRadius, HookBottomLength,
+                        HookMiddleLength, HookTopLength, 0.0);
                 }
             }
-                translate([0,0,SupportHeight+PostLength+ HookLength + 1])
-                    rotate([180,0,90])
-                        Rod(HookRadius*3,CutWidth, CutLength+4);  
+            translate([0,0,SupportHeight+PostLength+ HookLength + 1])
+                rotate([180,0,90])
+                    Rod(HookRadius*3,CutWidth, CutLength+4);  
         }
     }    
 }
@@ -139,8 +155,18 @@ module Gripper() {
 module Bottom() {
     difference() {
         union () {
-            translate([Length/4-Pad,0,0])
-                Rod(Pad+Length/2,Width,SupportHeight,false);                
+            difference() {
+                union () {
+                    translate([Length/4,0,0])
+                        Rod2(Length/2,Width+Pad,Width,SupportHeight,false);
+                    translate([Length/2,0,0])
+                        Spoke(Width/2,LowestHeight);
+                }
+                color("red")
+                rotate([0,0,(90-OpenAngle)]) 
+                    translate([LowestOffset,-Width*2,Thickness+Width/2])
+                        cube([Width*2, Width*4, Width*2]);
+            }                  
            
             translate([Length/2,0,0])
                 rotate([0,0,-FoldedAngle]) {
@@ -149,15 +175,17 @@ module Bottom() {
                         Rod(OuterLength,Width,Thickness);
                         translate([OuterLength/2,0,0]) {
                             Fin(Width/2, HighHeight, FinRatio);
-                            Fin(Width/2, HighHeight/2, 5+FinRatio);
+                            Fin(Width/2, HighHeight/2, 4+FinRatio);
                             Spoke(Width/2, HighHeight);
                             ContactPad();
-                            
-                        translate([-47.5,-Width/2,2])                          
-                            scale([0.5,1/3,1/3])
+                        
+                        if (Label1 != "") {
+                            translate([-45,0.5-Width/2,1.75])
                                 rotate([90,0,0])
-                                    linear_extrude(height=1)        
-                                        text("Space Potatoes", center=true);   
+                                    scale([1/2,1/2,1])
+                                        linear_extrude(height=1)        
+                                            text(Label1, center=true); 
+                            }  
                         }
                     }
                 }
@@ -174,7 +202,7 @@ module Bottom() {
                 cylinder(r=PostRadius+PostGap+1.5,h=2.65+PostGap);
                 translate([0,0,2.65+PostGap])
                     cylinder(r1=PostRadius+PostGap+1.5, r2=PostRadius+PostGap, h=1);
-                cylinder(r=PostRadius+PostGap, h=2+PostLength+SupportHeight+2);
+                cylinder(r=PostRadius+PostGap, h=2+PostLength+SupportHeight);
             }
             translate([-10,-(HookWidth + 2*PostGap)/2,0])
                 cube([20, (HookWidth + 2*PostGap), 2+PostLength+SupportHeight]);
@@ -195,7 +223,7 @@ module QuarterSphere(radius)
 module Hook(postRadius, postLength, hookRadius, bottomHookLength, middleHookLength, topHookLength, gap)
 {
     union() {
-            cylinder(r=postRadius+gap, h=postLength+bottomHookLength);
+        cylinder(r=postRadius+gap, h=postLength+bottomHookLength);
         translate([0,0,postLength-gap])
             cylinder(r1=postRadius+gap, r2 = hookRadius+gap, h=bottomHookLength);
         translate([0,0,postLength+bottomHookLength-gap])
@@ -206,56 +234,60 @@ module Hook(postRadius, postLength, hookRadius, bottomHookLength, middleHookLeng
 }
 
 module Top() {
-    union () {
-
-        difference() {
-            union() {
-                difference() {
-                    translate([Pad-Length/4,0,0])
-                        Rod(Pad+Length/2,Width,LowestHeight);
-                
-                    rotate([0,0,-OpenAngle/2])
-                    translate([-Width*2-LowestOffset,-Width*2,Thickness+Width/2])
-                        cube([Width*2, Width*4, Width*2]);
-                }        
-                
-                translate([-Length/2,0,0])
-                    rotate([0,0,180+FoldedAngle])
+    difference() {
+        union() {
+            difference() {
+                translate([-Length/4,0,0])
+                    Rod2(Length/2,Width,Width+Pad,LowestHeight);
+            
+                rotate([0,0,(OpenAngle-90)])
+                translate([-Width*2-LowestOffset,-Width*2,Thickness+Width/2])
+                    cube([Width*2, Width*4, Width*2]);
+            }        
+            
+            translate([-Length/2,0,0])
+                rotate([0,0,180+FoldedAngle])
+                    translate([OuterLength/2,0,0]) {
+                        Rod(OuterLength,Width,Thickness);
                         translate([OuterLength/2,0,0]) {
-                            Rod(OuterLength,Width,Thickness);
-                            translate([OuterLength/2,0,0]) {
-                                Fin(Width/2, HighHeight, FinRatio);
-                                Fin(Width/2, HighHeight/2, 5+FinRatio);
-                                Spoke(Width/2, HighHeight);
-                                ContactPad();
-                                                            
-                        translate([-10,Width/2,2])                          
-                            scale([0.5,1/3,1/3])
+                            Fin(Width/2, HighHeight, FinRatio);
+                            Fin(Width/2, HighHeight/2, 4+FinRatio);
+                            Spoke(Width/2, HighHeight);
+                            ContactPad();
+                    
+                        if (Label2 != "") {
+                            translate([-10,Width/2-0.5,1.75])                          
                                 rotate([90,0,180])
-                                    linear_extrude(height=1)        
-                                        text("FTC 12547", center=true);   
+                                    scale([1/2,1/2,1])
+                                        linear_extrude(height=1)        
+                                            text(Label2, center=true);   
                             }
                         }
-            }
+                    }
+        }
 
-            union () {
-               color("blue")
-                rotate([0,0,2*FoldedAngle])
-                translate([-2*Width,-(Width+Gap)/2,-1])
-                cube([4*Width,Width+Gap, SupportHeight+VerticalGap+1]);
-                
-                color("red")
+        union () {
+            color("blue")
+            rotate([0,0,2*FoldedAngle-180])
+                translate([Length/4,0,-1])
+                    Rod2(Length/2,Width+Pad+Gap,Width+Gap,SupportHeight+VerticalGap+1,roundTop=false);
+            //translate([-2*Width,-(Width+Gap)/2,-1])
+            //cube([4*Width,Width+Gap, SupportHeight+VerticalGap+1]);
+            
+            
+            color("red")
                 rotate([0,0,2*OpenAngle])
-                translate([-2*Width,-(Width+Gap)/2,-1])
-                cube([4*Width,Width+Gap, SupportHeight+VerticalGap+1]);
-                
-                translate([0,0,SupportHeight-1])
-                    Hook(PostRadius, PostLength+1,
-                         HookRadius, HookBottomLength, HookMiddleLength, HookTopLength, PostGap);
-                
-                translate([0,0,SupportHeight+VerticalGap])
-                    cylinder(r1=PostRadius+0.5+PostGap,r2=PostRadius+PostGap,h=1);
-            }
+                    translate([Length/4,0,-1])
+                        Rod2(Length/2,Width+Pad+Gap,Width+Gap,SupportHeight+VerticalGap+1,roundTop=false);
+         //   translate([-2*Width,-(Width+Gap)/2,-1])
+        //    cube([4*Width,Width+Gap, SupportHeight+VerticalGap+1]);
+            
+            translate([0,0,SupportHeight-1])
+                Hook(PostRadius, PostLength+1,
+                     HookRadius, HookBottomLength, HookMiddleLength, HookTopLength, PostGap);
+            
+            translate([0,0,SupportHeight+VerticalGap])
+                cylinder(r1=PostRadius+0.5+PostGap,r2=PostRadius+PostGap,h=1);
         }
     }
 }
@@ -271,29 +303,68 @@ module ContactPad() {
 
 module Rod(length, width, height, roundTop=true)
 {
-    translate([-length/2,-width/2,0])
+    translate([-length/2,0,0])
     intersection () {
-        translate([-width/2,0,0])
+        translate([-width/2,-width/2,0])
             cube([length+width, width, height+width]);
         union()
         {
-            cube([length, width, height]);
+            translate([0,-width/2,0])
+                cube([length, width, height]);
             
             if (roundTop) {
-                translate([0,width/2,height])
+                translate([0,0,height])
                     rotate([0,90,0])
                         cylinder(r=width/2, h=length);
                 
-                translate([0,width/2,height])
+                translate([0,0,height])
                     sphere(r=width/2);
-                translate([length,width/2,height])
+                translate([length,0,height])
                     sphere(r=width/2); 
             }
             
-            translate([0,width/2,0])
+            translate([0,0,0])
                 cylinder(r=width/2,h=height);
-            translate([length,width/2,0])
+            translate([length,0,0])
                 cylinder(r=width/2,h=height);
+        }
+    }    
+}
+
+module Rod2(length, width1, width2, height, roundTop=true)
+{
+    r1 = width1/2;
+    r2 = width2/2;
+    width = (width1+width2)/2;
+    maxWidth = max(width1, width2);
+    
+    dx = (r2-r1)/length;
+    dy = sqrt(1 - dx*dx);
+    
+    translate([-length/2,0,0])
+    intersection () {
+        translate([-width1/2,-maxWidth/2,0])
+            cube([length+width, maxWidth, height+maxWidth]);
+        union()
+        {
+                linear_extrude(height=height)
+                    polygon([[-dx*r1, -dy*r1], [-dx*r1, dy*r1],
+                             [length-dx*r2, dy*r2], [length-dx*r2, -dy*r2]]);           
+            if (roundTop) {
+                translate([-dx*r1,0,height])
+                    rotate([0,90,0])
+                        cylinder(r1=dy*r1, r2=dy*r2, h=length-(r2-r1)*dx);
+                
+                translate([0,0,height])
+                    sphere(r=r1);
+                translate([length,0,height])
+                    sphere(r=r2); 
+            }
+            
+            translate([0,0,0])
+                cylinder(r=r1,h=height);
+            translate([length,0,0])
+                cylinder(r=r2,h=height);
         }
     }    
 }

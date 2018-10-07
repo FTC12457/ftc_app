@@ -104,10 +104,12 @@ module Mount() {
             Holes();        
 
         }
-          translate([0,(16+mountThickness),mountThickness/2]) {  
-                cylinder(r=5,h=2,$fn=holeFacets);
-            cylinder(r=3.5,h=holeDepth,center=true,$fn=holeFacets);
-          }
+        
+       //   translate([0,(16+mountThickness),mountThickness/2]) {  
+       //         cylinder(r=5,h=2,$fn=holeFacets);
+       //     cylinder(r=3.5,h=holeDepth,center=true,$fn=holeFacets);
+       //  }
+        
         translate([32,(16+mountThickness),mountThickness/2])
             Holes();
 
